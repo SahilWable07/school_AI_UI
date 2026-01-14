@@ -11,24 +11,88 @@ interface MessageBubbleProps {
 
 // Parse and format response content
 function formatContent(content: string): string {
-  // Try to detect if content is JSON and format it nicely
   try {
-    // Check if it starts with { or [
     const trimmed = content.trim();
     if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
         (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
       const parsed = JSON.parse(trimmed);
-      // If it's a response object with a 'response' field, extract it
       if (parsed.response) {
         return parsed.response;
       }
-      // Otherwise format the JSON nicely
       return JSON.stringify(parsed, null, 2);
     }
   } catch {
     // Not JSON, return as is
   }
   return content;
+}
+
+// Render markdown-like content to JSX
+function renderFormattedText(text: string): React.ReactNode[] {
+  const elements: React.ReactNode[] = [];
+  const lines = text.split('\n');
+  
+  lines.forEach((line, lineIndex) => {
+    const trimmedLine = line.trim();
+    
+    // Check if it's a bullet point (starts with * or -)
+    const isBullet = /^[\*\-]\s+/.test(trimmedLine);
+    const lineContent = isBullet ? trimmedLine.replace(/^[\*\-]\s+/, '') : line;
+    
+    // Parse bold text (**text**)
+    const parts: React.ReactNode[] = [];
+    let partIndex = 0;
+    
+    const boldRegex = /\*\*([^*]+)\*\*/g;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = boldRegex.exec(lineContent)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(
+          <span key={`text-${lineIndex}-${partIndex++}`}>
+            {lineContent.slice(lastIndex, match.index)}
+          </span>
+        );
+      }
+      parts.push(
+        <strong key={`bold-${lineIndex}-${partIndex++}`} className="font-semibold">
+          {match[1]}
+        </strong>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+    
+    if (lastIndex < lineContent.length) {
+      parts.push(
+        <span key={`text-${lineIndex}-${partIndex++}`}>
+          {lineContent.slice(lastIndex)}
+        </span>
+      );
+    }
+    
+    if (parts.length === 0) {
+      parts.push(<span key={`line-${lineIndex}`}>{lineContent}</span>);
+    }
+    
+    if (isBullet) {
+      elements.push(
+        <div key={`bullet-${lineIndex}`} className="flex items-start gap-2 ml-2 my-1">
+          <span className="text-primary mt-0.5">•</span>
+          <span>{parts}</span>
+        </div>
+      );
+    } else {
+      elements.push(
+        <span key={`line-${lineIndex}`}>
+          {parts}
+          {lineIndex < lines.length - 1 && <br />}
+        </span>
+      );
+    }
+  });
+  
+  return elements;
 }
 
 export function MessageBubble({ role, content, timestamp }: MessageBubbleProps) {
@@ -85,9 +149,9 @@ export function MessageBubble({ role, content, timestamp }: MessageBubbleProps) 
               : "bg-chat-ai text-chat-ai-foreground rounded-tl-md"
           )}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">
-            {formattedContent}
-          </p>
+          <div className="text-sm leading-relaxed">
+            {isUser ? formattedContent : renderFormattedText(formattedContent)}
+          </div>
 
           {/* Copy button for assistant messages */}
           {!isUser && (
