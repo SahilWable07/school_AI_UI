@@ -181,23 +181,6 @@ const ChatDashboard = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Voice Assistant Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate('/voice')}
-                    className="rounded-full border-primary/30 hover:border-primary hover:bg-primary/10"
-                  >
-                    <Mic className="w-4 h-4 text-primary" />
-                  </Button>
-                </motion.div>
-              </TooltipTrigger>
-              <TooltipContent>Voice Assistant</TooltipContent>
-            </Tooltip>
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2">
@@ -305,16 +288,33 @@ const ChatDashboard = () => {
                   className="flex-1 resize-none bg-transparent border-0 focus:outline-none focus:ring-0 py-2 px-3 text-sm max-h-32"
                   style={{ minHeight: '40px' }}
                 />
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
-                    size="icon"
-                    className="gradient-primary text-primary-foreground shadow-glow hover:shadow-lg transition-all disabled:opacity-50 disabled:shadow-none h-10 w-10 rounded-xl"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </motion.div>
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate('/voice')}
+                          className="h-10 w-10 rounded-xl text-primary hover:bg-primary/10 hover:text-primary transition-all"
+                        >
+                          <Mic className="w-5 h-5" />
+                        </Button>
+                      </motion.div>
+                    </TooltipTrigger>
+                    <TooltipContent>Voice Assistant</TooltipContent>
+                  </Tooltip>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Button
+                      onClick={handleSend}
+                      disabled={!input.trim() || isLoading}
+                      size="icon"
+                      className="gradient-primary text-primary-foreground shadow-glow hover:shadow-lg transition-all disabled:opacity-50 disabled:shadow-none h-10 w-10 rounded-xl"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </motion.div>
+                </div>
               </motion.div>
               <p className="text-xs text-muted-foreground text-center mt-2">
                 Press Enter to send, Shift+Enter for new line
