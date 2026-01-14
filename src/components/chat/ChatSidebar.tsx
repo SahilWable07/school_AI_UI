@@ -5,17 +5,12 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Mic,
-  BarChart3,
-  Settings,
-  HelpCircle,
   Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ChatSession } from '@/hooks/useChatHistory';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useNavigate } from 'react-router-dom';
 
 interface ChatSidebarProps {
   collapsed: boolean;
@@ -42,15 +37,6 @@ export function ChatSidebar({
   clientName,
   clientShortName,
 }: ChatSidebarProps) {
-  const navigate = useNavigate();
-
-  const navItems = [
-    { icon: MessageSquare, label: 'Chat', active: true, onClick: () => {} },
-    { icon: Mic, label: 'Voice Assistant', active: false, onClick: () => navigate('/voice') },
-    { icon: BarChart3, label: 'Analytics', active: false, onClick: () => {} },
-    { icon: Settings, label: 'Settings', active: false, onClick: () => {} },
-    { icon: HelpCircle, label: 'Help', active: false, onClick: () => {} },
-  ];
 
   const formatDate = (date: Date) => {
     const now = new Date();
@@ -123,39 +109,6 @@ export function ChatSidebar({
           </Button>
         </motion.div>
       </div>
-
-      {/* Navigation */}
-      <nav className="px-3 py-2 space-y-1">
-        {navItems.map((item, index) => (
-          <motion.button
-            key={item.label}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.05 }}
-            whileHover={{ x: 4 }}
-            onClick={item.onClick}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-              item.active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-            )}
-          >
-            <item.icon className="w-5 h-5 flex-shrink-0" />
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  {item.label}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </motion.button>
-        ))}
-      </nav>
 
       {/* Chat History */}
       <div className="flex-1 flex flex-col min-h-0 border-t border-sidebar-border mt-2">
