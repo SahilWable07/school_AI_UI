@@ -169,17 +169,16 @@ export function ChatSidebar({
                     )}
                   </motion.button>
 
-                  {/* Delete button - always visible on hover */}
+                  {/* Delete button - always visible */}
                   {!collapsed && (
                     <motion.button
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      whileHover={{ scale: 1.15, backgroundColor: 'hsl(var(--destructive) / 0.15)' }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
                       onClick={(e) => {
                         e.stopPropagation();
                         onDeleteSession(session.id);
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg opacity-0 group-hover:opacity-100 text-destructive transition-all duration-200 hover:shadow-sm"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200"
                     >
                       <Trash2 className="w-4 h-4" />
                     </motion.button>
