@@ -50,7 +50,7 @@ const ChatDashboard = () => {
     addMessage,
     deleteSession,
     getConversationContext,
-  } = useChatHistory(selectedClient?.id || '');
+  } = useChatHistory(user?.id || '', selectedClient?.id || '');
 
   useEffect(() => {
     if (!selectedClient) {
