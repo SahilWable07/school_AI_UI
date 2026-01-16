@@ -14,14 +14,23 @@ export interface ChatSession {
   createdAt: Date;
   updatedAt: Date;
   clientId: string;
+  userId: string;
 }
 
 const MAX_HISTORY_MESSAGES = 10; // Last 10 messages for API context
 const MAX_SESSIONS = 50; // Keep up to 50 chat sessions
 
-export function useChatHistory(clientId: string) {
+// Create a unique storage key for user + client combination
+const getStorageKey = (userId: string, clientId: string) => `chat_sessions_${userId}_${clientId}`;
+const getCurrentSessionKey = (userId: string, clientId: string) => `current_session_${userId}_${clientId}`;
+
+export function useChatHistory(userId: string, clientId: string) {
+  const storageKey = getStorageKey(userId, clientId);
+  const currentSessionKey = getCurrentSessionKey(userId, clientId);
+
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
-    const stored = localStorage.getItem(`chat_sessions_${clientId}`);
+    if (!userId || !clientId) return [];
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -42,32 +51,38 @@ export function useChatHistory(clientId: string) {
   });
 
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => {
-    const stored = localStorage.getItem(`current_session_${clientId}`);
+    if (!userId || !clientId) return null;
+    const stored = localStorage.getItem(currentSessionKey);
     return stored || null;
   });
 
-  // Persist sessions
+  // Persist sessions whenever they change
   useEffect(() => {
-    localStorage.setItem(`chat_sessions_${clientId}`, JSON.stringify(sessions));
-  }, [sessions, clientId]);
-
-  // Persist current session
-  useEffect(() => {
-    if (currentSessionId) {
-      localStorage.setItem(`current_session_${clientId}`, currentSessionId);
+    if (userId && clientId) {
+      localStorage.setItem(storageKey, JSON.stringify(sessions));
     }
-  }, [currentSessionId, clientId]);
+  }, [sessions, storageKey, userId, clientId]);
+
+  // Persist current session ID
+  useEffect(() => {
+    if (userId && clientId && currentSessionId) {
+      localStorage.setItem(currentSessionKey, currentSessionId);
+    }
+  }, [currentSessionId, currentSessionKey, userId, clientId]);
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || null;
 
   const createSession = useCallback(() => {
+    if (!userId || !clientId) return null;
+    
     const newSession: ChatSession = {
-      id: Date.now().toString(),
+      id: `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       title: 'New Chat',
       messages: [],
       createdAt: new Date(),
       updatedAt: new Date(),
       clientId,
+      userId,
     };
 
     setSessions(prev => {
@@ -77,7 +92,7 @@ export function useChatHistory(clientId: string) {
     });
     setCurrentSessionId(newSession.id);
     return newSession;
-  }, [clientId]);
+  }, [clientId, userId]);
 
   const selectSession = useCallback((sessionId: string) => {
     setCurrentSessionId(sessionId);
@@ -106,13 +121,19 @@ export function useChatHistory(clientId: string) {
   }, [currentSessionId]);
 
   const deleteSession = useCallback((sessionId: string) => {
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
+    setSessions(prev => {
+      const filtered = prev.filter(s => s.id !== sessionId);
+      return filtered;
+    });
+    
+    // If we deleted the current session, clear the selection
     if (currentSessionId === sessionId) {
       setCurrentSessionId(null);
+      localStorage.removeItem(currentSessionKey);
     }
-  }, [currentSessionId]);
+  }, [currentSessionId, currentSessionKey]);
 
-  // Get last N messages for API context
+  // Get last N messages for API context (conversational history)
   const getConversationContext = useCallback(() => {
     if (!currentSession) return [];
     const messages = currentSession.messages.slice(-MAX_HISTORY_MESSAGES);
