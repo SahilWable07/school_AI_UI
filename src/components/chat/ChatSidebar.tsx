@@ -129,57 +129,77 @@ export function ChatSidebar({
         </AnimatePresence>
 
         <ScrollArea className="flex-1">
-          <div className="px-3 pb-3 space-y-1">
-            {sessions.map((session, index) => (
-              <motion.div
-                key={session.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.03 }}
-                className="group relative"
-              >
-                <motion.button
-                  whileHover={{ x: 2 }}
-                  onClick={() => onSelectSession(session.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all",
-                    currentSessionId === session.id
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                  )}
+          <div className="px-3 pb-3 space-y-1.5">
+            <AnimatePresence mode="popLayout">
+              {sessions.map((session, index) => (
+                <motion.div
+                  key={session.id}
+                  initial={{ opacity: 0, x: -20, height: 0 }}
+                  animate={{ opacity: 1, x: 0, height: 'auto' }}
+                  exit={{ opacity: 0, x: -20, height: 0 }}
+                  transition={{ delay: index * 0.03, duration: 0.2 }}
+                  layout
+                  className="group relative"
                 >
-                  <MessageSquare className="w-4 h-4 flex-shrink-0 opacity-60" />
-                  {!collapsed && (
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{session.title}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {formatDate(session.updatedAt)}
-                      </p>
-                    </div>
-                  )}
-                </motion.button>
-
-                {/* Delete button */}
-                {!collapsed && (
                   <motion.button
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    whileHover={{ scale: 1.1 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteSession(session.id);
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive transition-all"
+                    whileHover={{ x: 2 }}
+                    onClick={() => onSelectSession(session.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200",
+                      currentSessionId === session.id
+                        ? "bg-gradient-to-r from-primary/15 to-primary/5 text-sidebar-accent-foreground border border-primary/20 shadow-sm"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50 border border-transparent"
+                    )}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <div className={cn(
+                      "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors",
+                      currentSessionId === session.id 
+                        ? "bg-primary/20 text-primary" 
+                        : "bg-muted/50 text-muted-foreground"
+                    )}>
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    {!collapsed && (
+                      <div className="flex-1 min-w-0 pr-8">
+                        <p className="text-sm font-medium truncate">{session.title}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {formatDate(session.updatedAt)} • {session.messages.length} messages
+                        </p>
+                      </div>
+                    )}
                   </motion.button>
-                )}
-              </motion.div>
-            ))}
+
+                  {/* Delete button - always visible on hover */}
+                  {!collapsed && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      whileHover={{ scale: 1.15, backgroundColor: 'hsl(var(--destructive) / 0.15)' }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSession(session.id);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg opacity-0 group-hover:opacity-100 text-destructive transition-all duration-200 hover:shadow-sm"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </motion.button>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
             {sessions.length === 0 && !collapsed && (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                No chat history yet
-              </div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-12"
+              >
+                <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                  <MessageSquare className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground text-sm">No chat history yet</p>
+                <p className="text-muted-foreground/60 text-xs mt-1">Start a new conversation</p>
+              </motion.div>
             )}
           </div>
         </ScrollArea>
