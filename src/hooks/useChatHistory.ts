@@ -16,8 +16,8 @@ export interface ChatSession {
   clientId: string;
 }
 
-const MAX_HISTORY_MESSAGES = 10;
-const MAX_SESSIONS = 20;
+const MAX_HISTORY_MESSAGES = 10; // Last 10 messages for API context
+const MAX_SESSIONS = 50; // Keep up to 50 chat sessions
 
 export function useChatHistory(clientId: string) {
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
