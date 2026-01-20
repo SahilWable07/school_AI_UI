@@ -101,10 +101,9 @@ const ChatDashboard = () => {
           client_id: selectedClient?.id,
           bearer_token: accessToken,
           query: userMessage.content,
-          conversation: conversationContext.slice(-5).map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          // Backend expects an array of strings, not structured objects
+          // Send only the last 5 message texts without any role prefixes
+          conversation: conversationContext.slice(-5).map((m) => m.content),
         }),
       });
 
