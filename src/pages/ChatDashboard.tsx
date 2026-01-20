@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -34,9 +34,13 @@ const CHAT_API = 'http://127.0.0.1:8000/api/v1/chat';
 const ChatDashboard = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const { user, selectedClient, accessToken, logout, clearClient } = useAuth();
   const navigate = useNavigate();
@@ -97,7 +101,10 @@ const ChatDashboard = () => {
           client_id: selectedClient?.id,
           bearer_token: accessToken,
           query: userMessage.content,
-          conversation: conversationContext.map((m) => `${m.role}: ${m.content}`),
+          conversation: conversationContext.slice(-5).map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
         }),
       });
 
@@ -130,6 +137,61 @@ const ChatDashboard = () => {
     }
   }, [input, isLoading, addMessage, getConversationContext, user, selectedClient, accessToken]);
 
+  const handleUploadClick = () => {
+    setUploadStatus(null);
+    setUploadError(null);
+    uploadInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedClient?.id) {
+      setUploadError('Please select an organization before uploading.');
+      e.target.value = '';
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadStatus(null);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('client_id', selectedClient.id);
+      formData.append('pdf', file);
+
+      const res = await fetch('https://digital-parbhani-ai.157-20-215-17.nip.io/api/v1/upload_data', {
+        method: 'POST',
+        body: formData,
+      });
+
+      let successMessage = 'PDF uploaded successfully.';
+      try {
+        const data = await res.json();
+        if (data && typeof data === 'object') {
+          const possibleMessage =
+            (data as any).message ||
+            (data as any).detail ||
+            (data as any).status;
+          if (typeof possibleMessage === 'string' && possibleMessage.trim().length > 0) {
+            successMessage = possibleMessage;
+          }
+        }
+      } catch {
+        // If response is not JSON or parsing fails, fall back to default success message
+      }
+
+      setUploadStatus(successMessage);
+    } catch (error) {
+      setUploadError('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -150,6 +212,14 @@ const ChatDashboard = () => {
       animate={{ opacity: 1 }}
       className="h-screen flex bg-background overflow-hidden"
     >
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       {/* Sidebar */}
       <ChatSidebar
         collapsed={sidebarCollapsed}
@@ -162,6 +232,8 @@ const ChatDashboard = () => {
         clientLogo={clientDetails?.logo}
         clientName={clientDetails?.orgn_name}
         clientShortName={clientInfo?.short_name}
+        onUploadPdf={handleUploadClick}
+        isUploadingPdf={isUploading}
       />
 
       {/* Main Content */}
@@ -218,6 +290,19 @@ const ChatDashboard = () => {
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
+          {(uploadStatus || uploadError) && (
+            <div className="px-6 pt-3">
+              <div
+                className={`text-sm rounded-lg px-4 py-2 border ${
+                  uploadStatus
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-destructive/30 bg-destructive/10 text-destructive'
+                }`}
+              >
+                {uploadStatus || uploadError}
+              </div>
+            </div>
+          )}
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {(!currentSession || currentSession.messages.length === 0) && (

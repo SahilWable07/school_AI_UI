@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  UploadCloud,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,8 @@ interface ChatSidebarProps {
   clientLogo?: string;
   clientName?: string;
   clientShortName?: string;
+  onUploadPdf: () => void;
+  isUploadingPdf: boolean;
 }
 
 export function ChatSidebar({
@@ -36,6 +39,8 @@ export function ChatSidebar({
   clientLogo,
   clientName,
   clientShortName,
+  onUploadPdf,
+  isUploadingPdf,
 }: ChatSidebarProps) {
 
   const formatDate = (date: Date) => {
@@ -106,6 +111,17 @@ export function ChatSidebar({
           >
             <Plus className="w-5 h-5" />
             {!collapsed && <span className="ml-2">New Chat</span>}
+          </Button>
+        </motion.div>
+        <motion.div className="mt-2" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <Button
+            variant="outline"
+            onClick={onUploadPdf}
+            disabled={isUploadingPdf}
+            className={cn("w-full justify-center", collapsed ? "px-0" : "")}
+          >
+            <UploadCloud className="w-5 h-5" />
+            {!collapsed && <span className="ml-2">{isUploadingPdf ? 'Uploading...' : 'Upload PDF'}</span>}
           </Button>
         </motion.div>
       </div>
