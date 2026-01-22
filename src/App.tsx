@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import ClientSelection from "./pages/ClientSelection";
 import ChatDashboard from "./pages/ChatDashboard";
 import VoiceAssistant from "./pages/VoiceAssistant";
+import GeminiVoice from "./pages/GeminiVoice";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,6 +75,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <VoiceAssistant />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/gemini-voice"
+        element={
+          <ProtectedRoute>
+            <GeminiVoice />
           </ProtectedRoute>
         }
       />
