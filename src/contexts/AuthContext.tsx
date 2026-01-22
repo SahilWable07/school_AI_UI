@@ -41,7 +41,7 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = 'https://dt1wp7hrm9.execute-api.ap-south-1.amazonaws.com/auth/api';
+const API_BASE = 'https://platform-development-dev.157.20.214.214.nip.io/auth/api';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AuthState>(() => {
