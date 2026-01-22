@@ -2,81 +2,45 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  Send,
   ArrowLeft,
   Volume2,
   VolumeX,
   Loader2,
   Mic,
-  MicOff,
   Square,
   Sparkles,
+  Key,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { GeminiAudioSession, playAudioBlob } from '@/lib/gemini-audio';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
-type Status = 'idle' | 'connecting' | 'connected' | 'listening' | 'processing' | 'playing' | 'error';
+type Status = 'idle' | 'connecting' | 'connected' | 'processing' | 'playing' | 'error';
+
+const STORAGE_KEY = 'gemini_api_key';
 
 const GeminiVoice = () => {
   const [status, setStatus] = useState<Status>('idle');
+  const [inputText, setInputText] = useState('');
   const [isMuted, setIsMuted] = useState(false);
-  const [transcript, setTranscript] = useState('');
   const [textResponse, setTextResponse] = useState('');
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [isLoadingKey, setIsLoadingKey] = useState(true);
+  const [lastQuery, setLastQuery] = useState('');
+  const [apiKey, setApiKey] = useState(() => {
+    return localStorage.getItem(STORAGE_KEY) || '';
+  });
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   
   const sessionRef = useRef<GeminiAudioSession | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const recognitionRef = useRef<any>(null);
 
   const { selectedClient } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const clientDetails = selectedClient?.orgn_details[0];
-
-  // Fetch API key from edge function on mount
-  useEffect(() => {
-    const fetchApiKey = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('gemini-api-key');
-        
-        if (error) {
-          console.error('Error fetching API key:', error);
-          toast({
-            title: 'Configuration Error',
-            description: 'Failed to load API configuration. Please try again.',
-            variant: 'destructive',
-          });
-          setIsLoadingKey(false);
-          return;
-        }
-
-        if (data?.apiKey) {
-          setApiKey(data.apiKey);
-        } else {
-          toast({
-            title: 'API Key Not Configured',
-            description: 'Please configure the GEMINI_API_KEY in your backend secrets.',
-            variant: 'destructive',
-          });
-        }
-      } catch (err) {
-        console.error('Error fetching API key:', err);
-        toast({
-          title: 'Error',
-          description: 'Failed to initialize voice assistant.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoadingKey(false);
-      }
-    };
-
-    fetchApiKey();
-  }, [toast]);
 
   useEffect(() => {
     if (!selectedClient) {
@@ -87,46 +51,37 @@ const GeminiVoice = () => {
   useEffect(() => {
     return () => {
       sessionRef.current?.close();
-      recognitionRef.current?.stop();
     };
   }, []);
 
-  // Initialize speech recognition
-  const initSpeechRecognition = useCallback(() => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      toast({
-        title: 'Not Supported',
-        description: 'Speech recognition is not supported in your browser.',
-        variant: 'destructive',
-      });
-      return null;
-    }
+  const handleSaveApiKey = () => {
+    localStorage.setItem(STORAGE_KEY, apiKey);
+    setShowApiKeyInput(false);
+    toast({
+      title: 'API Key Saved',
+      description: 'Your Gemini API key has been saved locally.',
+    });
+  };
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
+  const handleSubmit = useCallback(async () => {
+    if (!inputText.trim()) return;
 
-    return recognition;
-  }, [toast]);
-
-  // Handle voice query with Gemini
-  const handleVoiceQuery = useCallback(async (query: string) => {
     if (!apiKey) {
+      setShowApiKeyInput(true);
       toast({
-        title: 'API Key Missing',
-        description: 'Please configure the Gemini API key.',
+        title: 'API Key Required',
+        description: 'Please enter your Gemini API key to continue.',
         variant: 'destructive',
       });
       return;
     }
 
-    setStatus('processing');
+    setLastQuery(inputText);
     setTextResponse('');
+    setStatus('connecting');
 
     try {
+      // Create new session for each request
       const session = new GeminiAudioSession({
         apiKey: apiKey,
         voiceName: 'Zephyr',
@@ -137,6 +92,7 @@ const GeminiVoice = () => {
           if (!isMuted) {
             setStatus('playing');
             try {
+              // Use Audio element for better compatibility
               const url = URL.createObjectURL(audioBlob);
               if (audioRef.current) {
                 audioRef.current.src = url;
@@ -146,14 +102,11 @@ const GeminiVoice = () => {
               }
             } catch (err) {
               console.error('Audio playback error:', err);
-              setStatus('connected');
             }
-          } else {
-            setStatus('idle');
+            setStatus('connected');
           }
         },
         onError: (error) => {
-          console.error('Gemini error:', error);
           toast({
             title: 'Error',
             description: error,
@@ -161,16 +114,13 @@ const GeminiVoice = () => {
           });
           setStatus('error');
         },
-        onStatusChange: (newStatus) => {
-          if (newStatus === 'connected') {
-            // Don't override our more specific statuses
-          }
-        },
+        onStatusChange: setStatus,
       });
 
       sessionRef.current = session;
       await session.connect();
-      await session.sendMessage(query);
+      await session.sendMessage(inputText);
+      setInputText('');
     } catch (error) {
       console.error('Gemini error:', error);
       toast({
@@ -180,64 +130,9 @@ const GeminiVoice = () => {
       });
       setStatus('error');
     }
-  }, [apiKey, isMuted, toast]);
+  }, [inputText, isMuted, toast, apiKey]);
 
-  // Start listening
-  const startListening = useCallback(() => {
-    if (!apiKey) {
-      toast({
-        title: 'Not Ready',
-        description: 'Voice assistant is still loading. Please wait.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const recognition = initSpeechRecognition();
-    if (!recognition) return;
-
-    recognitionRef.current = recognition;
-
-    recognition.onstart = () => {
-      setStatus('listening');
-      setTranscript('');
-      setTextResponse('');
-    };
-
-    recognition.onresult = (event: any) => {
-      const current = event.resultIndex;
-      const result = event.results[current];
-      setTranscript(result[0].transcript);
-
-      if (result.isFinal) {
-        handleVoiceQuery(result[0].transcript);
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      if (event.error !== 'no-speech') {
-        toast({
-          title: 'Recognition Error',
-          description: `Speech recognition error: ${event.error}`,
-          variant: 'destructive',
-        });
-      }
-      setStatus('idle');
-    };
-
-    recognition.onend = () => {
-      if (status === 'listening') {
-        setStatus('idle');
-      }
-    };
-
-    recognition.start();
-  }, [apiKey, initSpeechRecognition, handleVoiceQuery, status, toast]);
-
-  // Stop everything
   const handleStop = useCallback(() => {
-    recognitionRef.current?.stop();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -246,26 +141,30 @@ const GeminiVoice = () => {
     setStatus('idle');
   }, []);
 
-  const isListening = status === 'listening';
-  const isProcessing = status === 'processing' || status === 'connecting';
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const isLoading = status === 'connecting' || status === 'processing';
   const isPlaying = status === 'playing';
-  const isActive = isListening || isProcessing || isPlaying;
 
   const getStatusText = () => {
-    if (isLoadingKey) return 'Initializing...';
     switch (status) {
-      case 'listening':
-        return 'Listening...';
       case 'connecting':
         return 'Connecting to Gemini...';
       case 'processing':
-        return 'Processing...';
+        return 'Processing your request...';
       case 'playing':
         return 'Speaking...';
+      case 'connected':
+        return 'Ready';
       case 'error':
         return 'Error occurred';
       default:
-        return 'Tap to speak';
+        return 'Enter text and click send';
     }
   };
 
@@ -274,7 +173,7 @@ const GeminiVoice = () => {
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
-        onEnded={() => setStatus('idle')}
+        onEnded={() => setStatus('connected')}
         className="hidden"
       />
 
@@ -299,24 +198,72 @@ const GeminiVoice = () => {
               Gemini Voice Assistant
             </h1>
             <p className="text-xs text-muted-foreground">
-              {clientDetails?.orgn_name || 'Voice to Voice'}
+              {clientDetails?.orgn_name || 'Native Audio Streaming'}
             </p>
           </div>
         </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsMuted(!isMuted)}
-          className="rounded-full"
-        >
-          {isMuted ? (
-            <VolumeX className="w-5 h-5 text-muted-foreground" />
-          ) : (
-            <Volume2 className="w-5 h-5" />
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+            className="rounded-full"
+          >
+            <Key className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMuted(!isMuted)}
+            className="rounded-full"
+          >
+            {isMuted ? (
+              <VolumeX className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <Volume2 className="w-5 h-5" />
+            )}
+          </Button>
+        </div>
       </motion.header>
+
+      {/* API Key Input Panel */}
+      <AnimatePresence>
+        {showApiKeyInput && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-b border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden"
+          >
+            <div className="p-4 max-w-md mx-auto">
+              <p className="text-sm text-muted-foreground mb-3">
+                Enter your Gemini API key from{' '}
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Google AI Studio
+                </a>
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter your Gemini API key..."
+                  className="flex-1"
+                />
+                <Button onClick={handleSaveApiKey} disabled={!apiKey.trim()}>
+                  Save
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
@@ -325,7 +272,7 @@ const GeminiVoice = () => {
           {/* Outer rings */}
           <motion.div
             animate={
-              isActive
+              isLoading || isPlaying
                 ? { scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }
                 : { scale: 1, opacity: 0.3 }
             }
@@ -334,7 +281,7 @@ const GeminiVoice = () => {
           />
           <motion.div
             animate={
-              isActive
+              isLoading || isPlaying
                 ? { scale: [1, 1.15, 1], opacity: [0.4, 0.7, 0.4] }
                 : { scale: 1, opacity: 0.4 }
             }
@@ -343,7 +290,7 @@ const GeminiVoice = () => {
           />
           <motion.div
             animate={
-              isActive
+              isLoading || isPlaying
                 ? { scale: [1, 1.1, 1], opacity: [0.5, 0.8, 0.5] }
                 : { scale: 1, opacity: 0.5 }
             }
@@ -351,34 +298,26 @@ const GeminiVoice = () => {
             className="absolute inset-0 w-32 h-32 -m-4 rounded-full bg-primary/40"
           />
 
-          {/* Main button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={isActive ? handleStop : startListening}
-            disabled={isLoadingKey || isProcessing}
-            className={`relative w-24 h-24 rounded-full flex items-center justify-center shadow-lg transition-all disabled:opacity-50 ${
-              isListening
-                ? 'gradient-primary shadow-glow'
-                : isProcessing
+          {/* Main icon */}
+          <motion.div
+            animate={isPlaying ? { scale: [1, 1.05, 1] } : {}}
+            transition={{ duration: 0.5, repeat: Infinity }}
+            className={`relative w-24 h-24 rounded-full flex items-center justify-center shadow-lg transition-all ${
+              isLoading
                 ? 'bg-muted'
                 : isPlaying
                 ? 'gradient-primary shadow-glow'
-                : 'bg-card border border-border hover:border-primary'
+                : 'bg-card border border-border'
             }`}
           >
-            {isLoadingKey ? (
+            {isLoading ? (
               <Loader2 className="w-10 h-10 text-muted-foreground animate-spin" />
-            ) : isProcessing ? (
-              <Loader2 className="w-10 h-10 text-muted-foreground animate-spin" />
-            ) : isListening ? (
-              <MicOff className="w-10 h-10 text-primary-foreground" />
             ) : isPlaying ? (
-              <Square className="w-10 h-10 text-primary-foreground" />
+              <Volume2 className="w-10 h-10 text-primary-foreground" />
             ) : (
               <Mic className="w-10 h-10 text-primary" />
             )}
-          </motion.button>
+          </motion.div>
         </div>
 
         {/* Status Text */}
@@ -394,7 +333,7 @@ const GeminiVoice = () => {
               className={`text-lg font-medium ${
                 status === 'error'
                   ? 'text-destructive'
-                  : isActive
+                  : isLoading || isPlaying
                   ? 'text-primary'
                   : 'text-muted-foreground'
               }`}
@@ -404,9 +343,9 @@ const GeminiVoice = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Transcript */}
+        {/* Last Query */}
         <AnimatePresence>
-          {transcript && (
+          {lastQuery && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -415,13 +354,13 @@ const GeminiVoice = () => {
             >
               <div className="bg-chat-user text-chat-user-foreground px-5 py-4 rounded-2xl shadow-soft">
                 <p className="text-sm font-medium text-muted-foreground mb-1">You said:</p>
-                <p className="text-base">{transcript}</p>
+                <p className="text-base">{lastQuery}</p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Text Response (if available) */}
+        {/* Text Response */}
         <AnimatePresence>
           {textResponse && (
             <motion.div
@@ -438,6 +377,47 @@ const GeminiVoice = () => {
           )}
         </AnimatePresence>
 
+        {/* Input Area */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md"
+        >
+          <div className="flex gap-2">
+            <Input
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message..."
+              disabled={isLoading}
+              className="flex-1 h-12 rounded-xl bg-card border-border focus:border-primary"
+            />
+            {isPlaying ? (
+              <Button
+                onClick={handleStop}
+                variant="destructive"
+                size="icon"
+                className="h-12 w-12 rounded-xl"
+              >
+                <Square className="w-5 h-5" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                disabled={isLoading || !inputText.trim()}
+                size="icon"
+                className="h-12 w-12 rounded-xl gradient-primary"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </Button>
+            )}
+          </div>
+        </motion.div>
+
         {/* Help text */}
         <motion.p
           initial={{ opacity: 0 }}
@@ -445,9 +425,8 @@ const GeminiVoice = () => {
           transition={{ delay: 0.5 }}
           className="text-sm text-muted-foreground mt-8 text-center max-w-sm"
         >
-          {isLoadingKey
-            ? 'Loading voice assistant...'
-            : `Tap the microphone and speak. ${clientDetails?.orgn_name ? `Ask anything about ${clientDetails.orgn_name}.` : 'The AI will respond with voice.'}`}
+          Type your message and press Enter or click Send. The AI will respond with voice using
+          Gemini's native audio streaming.
         </motion.p>
       </div>
     </div>
