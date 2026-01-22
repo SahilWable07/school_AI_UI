@@ -9,6 +9,7 @@ import {
   ChevronDown,
   MessageSquare,
   Mic,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -387,6 +388,21 @@ const ChatDashboard = () => {
                       </motion.div>
                     </TooltipTrigger>
                     <TooltipContent>Voice Assistant</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate('/gemini-voice')}
+                          className="h-10 w-10 rounded-xl text-primary hover:bg-primary/10 hover:text-primary transition-all"
+                        >
+                          <Sparkles className="w-5 h-5" />
+                        </Button>
+                      </motion.div>
+                    </TooltipTrigger>
+                    <TooltipContent>Gemini Voice (Native Audio)</TooltipContent>
                   </Tooltip>
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button
